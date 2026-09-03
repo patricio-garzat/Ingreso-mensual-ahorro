@@ -823,6 +823,46 @@
   };
 
   /* ============================================================
+     PERSISTENCIA — guarda el ingreso y los porcentajes del usuario
+     en este navegador (localStorage) para que sigan ahí la próxima
+     vez que abra el archivo.
+     ============================================================ */
+  const STORAGE_KEY = "ingreso-sim-data-v1";
+
+  function loadPersistedState(){
+    let raw = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch(e){ return; }
+    if (!raw) return;
+    try{
+      const data = JSON.parse(raw);
+      if (typeof data.income === "number" && isFinite(data.income) && data.income >= 0){
+        state.income = data.income;
+      }
+      if (data.percents && typeof data.percents === "object"){
+        CATEGORIES.forEach(cat => {
+          const v = data.percents[cat.key];
+          if (typeof v === "number" && isFinite(v) && v >= 0 && v <= 100){
+            state.percents[cat.key] = v;
+          }
+        });
+      }
+      if (data.summaryPeriod === "monthly" || data.summaryPeriod === "yearly"){
+        state.summaryPeriod = data.summaryPeriod;
+      }
+    } catch(e){ /* datos corruptos: se ignoran y se usan los valores por defecto */ }
+  }
+
+  function savePersistedState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        income: state.income,
+        percents: state.percents,
+        summaryPeriod: state.summaryPeriod
+      }));
+    } catch(e){ /* almacenamiento no disponible: modo privado, cuota llena, etc. */ }
+  }
+
+  /* ============================================================
      UTILIDADES DE FORMATO
      ============================================================ */
   const moneyFormatter = new Intl.NumberFormat("es-MX", {
@@ -1151,6 +1191,9 @@
     document.getElementById("invest5").textContent = formatMoney(investAnnual * 5);
     document.getElementById("invest10").textContent = formatMoney(investAnnual * 10);
     document.getElementById("invest20").textContent = formatMoney(investAnnual * 20);
+
+    // Guardar en este navegador para la próxima visita
+    savePersistedState();
   }
 
   /* ============================================================
@@ -1264,7 +1307,19 @@
   /* ============================================================
      INICIALIZACIÓN
      ============================================================ */
+  loadPersistedState();
   initTheme();
+
+  // Reflejar en la UI los valores restaurados (ingreso y toggle mensual/anual)
+  incomeInput.value = formatPlainNumber(state.income);
+  if (state.summaryPeriod === "yearly"){
+    toggleYearlyBtn.classList.add("active");
+    toggleMonthlyBtn.classList.remove("active");
+  } else {
+    toggleMonthlyBtn.classList.add("active");
+    toggleYearlyBtn.classList.remove("active");
+  }
+
   render();
 })();
 </script>
